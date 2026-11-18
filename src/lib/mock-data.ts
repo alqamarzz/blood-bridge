@@ -143,20 +143,36 @@ export const MOCK_BLOOD_REQUESTS = [
   },
 ];
 
+// Connectivity circuit breaker state
+let isDbOnline = true;
+let lastDbCheckTimestamp = 0;
+const DB_RETRY_COOLDOWN_MS = 20000; // Retry DB probe every 20 seconds when offline
+
 /**
- * Timeout wrapper for database calls.
- * If Prisma cannot connect within `timeoutMs`, resolves with fallback value immediately
- * instead of hanging the HTTP route for 5+ seconds.
+ * High-performance timeout wrapper with connection circuit-breaker.
+ * When the local DB is offline, returns fallback data in 0ms without
+ * waiting or freezing the route navigation.
  */
 export async function withDbTimeout<T>(
   promise: Promise<T>,
   fallbackValue: T,
-  timeoutMs = 600
+  timeoutMs = 120
 ): Promise<T> {
+  const now = Date.now();
+
+  // If DB was recently marked offline, don't wait — return fallback instantly!
+  if (!isDbOnline && now - lastDbCheckTimestamp < DB_RETRY_COOLDOWN_MS) {
+    return fallbackValue;
+  }
+
   let timer: NodeJS.Timeout;
+  let hasTimedOut = false;
 
   const timeoutPromise = new Promise<T>((resolve) => {
     timer = setTimeout(() => {
+      hasTimedOut = true;
+      isDbOnline = false;
+      lastDbCheckTimestamp = Date.now();
       resolve(fallbackValue);
     }, timeoutMs);
   });
@@ -164,9 +180,14 @@ export async function withDbTimeout<T>(
   try {
     const result = await Promise.race([promise, timeoutPromise]);
     clearTimeout(timer!);
+    if (!hasTimedOut) {
+      isDbOnline = true;
+    }
     return result;
-  } catch (error) {
+  } catch (_error) {
     clearTimeout(timer!);
+    isDbOnline = false;
+    lastDbCheckTimestamp = Date.now();
     return fallbackValue;
   }
 }

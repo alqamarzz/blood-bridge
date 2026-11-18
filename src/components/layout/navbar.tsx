@@ -34,16 +34,16 @@ export function Navbar({ user }: NavbarProps) {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <Link href="/find-blood" className="hover:text-red-600 transition-colors">
+          <Link href="/find-blood" prefetch={true} className="hover:text-red-600 transition-colors">
             Find Blood
           </Link>
-          <Link href="/become-donor" className="hover:text-red-600 transition-colors">
+          <Link href="/become-donor" prefetch={true} className="hover:text-red-600 transition-colors">
             Become a Donor
           </Link>
-          <Link href="/how-it-works" className="hover:text-red-600 transition-colors">
+          <Link href="/how-it-works" prefetch={true} className="hover:text-red-600 transition-colors">
             How It Works
           </Link>
-          <Link href="/about" className="hover:text-red-600 transition-colors">
+          <Link href="/about" prefetch={true} className="hover:text-red-600 transition-colors">
             About
           </Link>
         </nav>

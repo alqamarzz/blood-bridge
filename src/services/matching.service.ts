@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { DEFAULT_SEARCH_RADII } from "@/lib/constants";
 import { formatDistance } from "@/lib/utils";
 
@@ -87,8 +88,11 @@ async function findDonorsByDistance(
   let donors: MatchedDonor[] = [];
 
   for (const radiusKm of radii) {
-    // Use Haversine formula for distance calculation
-    // This works with standard PostgreSQL. For PostGIS, replace with ST_DWithin.
+    const excludeFilter =
+      excludeDonorIds.length > 0
+        ? Prisma.sql`AND dp."userId" NOT IN (${Prisma.join(excludeDonorIds)})`
+        : Prisma.empty;
+
     const results = await prisma.$queryRaw<
       Array<{
         id: string;
@@ -102,48 +106,41 @@ async function findDonorsByDistance(
         distance_km: number;
       }>
     >`
-      SELECT
-        dp.id,
-        dp."userId",
-        dp."bloodGroup",
-        dp.city,
-        dp.area,
-        dp.latitude,
-        dp.longitude,
-        u.name as "userName",
-        (
-          6371 * acos(
-            cos(radians(${latitude}))
-            * cos(radians(dp.latitude))
-            * cos(radians(dp.longitude) - radians(${longitude}))
-            + sin(radians(${latitude}))
-            * sin(radians(dp.latitude))
-          )
-        ) as distance_km
-      FROM donor_profiles dp
-      JOIN users u ON u.id = dp."userId"
-      WHERE dp."bloodGroup" = ${bloodGroup}::"BloodGroup"
-        AND dp."isAvailable" = true
-        AND dp."locationConsent" = true
-        AND dp.latitude IS NOT NULL
-        AND dp.longitude IS NOT NULL
-        AND u.suspended = false
-        AND u."phoneVerified" = true
-        ${excludeDonorIds.length > 0
-          ? prisma.$queryRaw`AND dp."userId" NOT IN (${prisma.$queryRaw`${excludeDonorIds.join("','")}`})`
-          : prisma.$queryRaw``
-        }
-      HAVING (
-        6371 * acos(
-          cos(radians(${latitude}))
-          * cos(radians(dp.latitude))
-          * cos(radians(dp.longitude) - radians(${longitude}))
-          + sin(radians(${latitude}))
-          * sin(radians(dp.latitude))
-        )
-      ) <= ${radiusKm}
+      SELECT * FROM (
+        SELECT
+          dp.id,
+          dp."userId",
+          dp."bloodGroup",
+          dp.city,
+          dp.area,
+          dp.latitude,
+          dp.longitude,
+          u.name as "userName",
+          (
+            6371 * acos(
+              LEAST(1.0, GREATEST(-1.0,
+                cos(radians(${latitude}))
+                * cos(radians(dp.latitude))
+                * cos(radians(dp.longitude) - radians(${longitude}))
+                + sin(radians(${latitude}))
+                * sin(radians(dp.latitude))
+              ))
+            )
+          ) as distance_km
+        FROM donor_profiles dp
+        JOIN users u ON u.id = dp."userId"
+        WHERE dp."bloodGroup" = ${bloodGroup}::"BloodGroup"
+          AND dp."isAvailable" = true
+          AND dp."locationConsent" = true
+          AND dp.latitude IS NOT NULL
+          AND dp.longitude IS NOT NULL
+          AND u.suspended = false
+          AND u."phoneVerified" = true
+          ${excludeFilter}
+      ) sub
+      WHERE distance_km <= ${radiusKm}
       ORDER BY distance_km ASC
-      LIMIT 50
+      LIMIT 50;
     `;
 
     if (results.length > 0) {

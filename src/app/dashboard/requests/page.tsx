@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Clock, MapPin, Users, Activity } from "lucide-react";
 import { formatBloodGroup, formatDateTime, getStatusColor, getUrgencyColor } from "@/lib/utils";
+import { withDbTimeout } from "@/lib/mock-data";
 
 export default async function RequesterRequestsPage() {
   const session = await auth();
@@ -15,21 +16,24 @@ export default async function RequesterRequestsPage() {
     redirect("/login");
   }
 
-  const requests = await prisma.bloodRequest.findMany({
-    where: { requesterId: session.user.id },
-    include: {
-      _count: {
-        select: { donorResponses: true },
-      },
-      donorResponses: {
-        select: {
-          id: true,
-          status: true,
+  const requests = await withDbTimeout(
+    prisma.bloodRequest.findMany({
+      where: { requesterId: session.user.id },
+      include: {
+        _count: {
+          select: { donorResponses: true },
+        },
+        donorResponses: {
+          select: {
+            id: true,
+            status: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    }),
+    []
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
