@@ -30,9 +30,9 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  phone: z
+  identifier: z
     .string()
-    .regex(/^\+91[6-9]\d{9}$/, "Please enter a valid Indian phone number")
+    .min(1, "Please enter your email or phone number")
     .trim(),
   password: z.string().min(1, "Password is required"),
 });

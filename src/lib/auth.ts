@@ -19,17 +19,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        phone: { label: "Phone", type: "text" },
+        identifier: { label: "Email or Phone", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { phone, password } = parsed.data;
+        const { identifier, password } = parsed.data;
+        const cleanIdentifier = identifier.trim();
+        const isEmail = cleanIdentifier.includes("@");
 
-        const user = await prisma.user.findUnique({
-          where: { phone },
+        let phoneQuery = cleanIdentifier;
+        if (!isEmail) {
+          // Normalize 10-digit Indian numbers without +91
+          if (!phoneQuery.startsWith("+") && phoneQuery.length === 10) {
+            phoneQuery = `+91${phoneQuery}`;
+          }
+        }
+
+        const user = await prisma.user.findFirst({
+          where: isEmail
+            ? { email: { equals: cleanIdentifier, mode: "insensitive" } }
+            : { phone: phoneQuery },
           select: {
             id: true,
             name: true,

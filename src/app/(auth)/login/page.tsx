@@ -25,7 +25,7 @@ export default function LoginPage() {
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      phone: "+91",
+      identifier: "",
       password: "",
     },
   });
@@ -36,13 +36,13 @@ export default function LoginPage() {
 
     try {
       const res = await signIn("credentials", {
-        phone: data.phone,
+        identifier: data.identifier,
         password: data.password,
         redirect: false,
       });
 
       if (res?.error) {
-        setAuthError("Invalid phone number or password.");
+        setAuthError("Invalid email/phone number or password.");
       } else {
         router.push("/dashboard/requests");
         router.refresh();
@@ -77,15 +77,15 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone Number (with +91)</Label>
+              <Label htmlFor="identifier">Email or Phone Number</Label>
               <Input
-                id="phone"
-                placeholder="+919876543210"
-                {...register("phone")}
+                id="identifier"
+                placeholder="admin@bloodbridge.org or +919876543210"
+                {...register("identifier")}
                 disabled={isLoading}
               />
-              {errors.phone && (
-                <p className="text-xs text-red-600">{errors.phone.message}</p>
+              {errors.identifier && (
+                <p className="text-xs text-red-600">{errors.identifier.message}</p>
               )}
             </div>
 
