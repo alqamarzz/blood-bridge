@@ -44,7 +44,11 @@ export default function LoginPage() {
       if (res?.error) {
         setAuthError("Invalid email/phone number or password.");
       } else {
-        router.push("/dashboard/requests");
+        if (data.identifier.toLowerCase().includes("admin")) {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard/requests");
+        }
         router.refresh();
       }
     } catch {
