@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/validations/auth";
+import { loginWithCredentials } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,25 +35,17 @@ export default function LoginPage() {
     setAuthError(null);
 
     try {
-      const res = await signIn("credentials", {
-        identifier: data.identifier,
-        password: data.password,
-        redirect: false,
-      });
-
+      const res = await loginWithCredentials(data.identifier, data.password);
       if (res?.error) {
-        setAuthError("Invalid email/phone number or password.");
-      } else {
-        if (data.identifier.toLowerCase().includes("admin")) {
-          router.push("/admin");
-        } else {
-          router.push("/dashboard/requests");
-        }
-        router.refresh();
+        setAuthError(res.error);
+        setIsLoading(false);
       }
-    } catch {
+    } catch (err: any) {
+      // In Next.js, redirect() throws an error with digest 'NEXT_REDIRECT', let it navigate
+      if (err?.digest?.startsWith("NEXT_REDIRECT")) {
+        return;
+      }
       setAuthError("An unexpected error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
